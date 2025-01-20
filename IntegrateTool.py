@@ -3,7 +3,6 @@ import psutil
 import wmi
 import netifaces
 from PyQt5.QtGui import QTextLine
-
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QFrame, QLabel, \
     QDialog, QLineEdit, QTextEdit
 import socket
@@ -28,8 +27,8 @@ class App(QWidget):
 
         # 上部布局 - 两个 Checkbox
         checkbox_layout = QHBoxLayout()
-        self.checkbox1 = QCheckBox('Checkbox 1', self)
-        self.checkbox2 = QCheckBox('Checkbox 2', self)
+        self.checkbox1 = QCheckBox('新电脑安装', self)
+        self.checkbox2 = QCheckBox('单独执行', self)
         checkbox_layout.addWidget(self.checkbox1)
         checkbox_layout.addWidget(self.checkbox2)
 
@@ -41,9 +40,10 @@ class App(QWidget):
 
         # 左边的按钮布局
         button_layout = QVBoxLayout()
+        button_name_arr = ['全新自动安装','设置IP','复制安装软件','禁用U盘','禁止系统更新']
         self.buttons = []
-        for i in range(6):
-            button = QPushButton(f'Button {i + 1}', self)
+        for i in range(len(button_name_arr)):
+            button = QPushButton(f'{button_name_arr[i]}', self)
             button.setEnabled(False)  # 初始禁用所有按钮
             button_layout.addWidget(button)
             self.buttons.append(button)
@@ -53,8 +53,9 @@ class App(QWidget):
         self.labels = []
         self.icons = []
 
-        for i in range(6):
-            label = QLabel(f'Label {i + 1}', self)
+        label_name_arr = ['设置IP','复制安装软件','禁用U盘','禁止系统更新']
+        for i in range(len(label_name_arr)):
+            label = QLabel(f'{label_name_arr[i]}', self)
             self.labels.append(label)
             icon = QLabel(self)
             self.icons.append(icon)
@@ -108,7 +109,7 @@ class SystemInfoDialog(QDialog):
         layout = QHBoxLayout()
 
         # 获取并显示系统信息
-        self.display_system_info(layout_label,layout_text)
+        self.display_system_info(layout_label, layout_text)
 
         layout.addLayout(layout_label)
         layout.addLayout(layout_text)
@@ -117,7 +118,7 @@ class SystemInfoDialog(QDialog):
         self.setAutoFillBackground(True)
         self.setFixedSize(500, 400)
 
-    def display_system_info(self, layout1,layout2):
+    def display_system_info(self, layout1, layout2):
         # 获取 CPU 型号信息
         systeminfo = wmi.WMI()
         cpu = systeminfo.Win32_Processor()[0].Name
@@ -129,30 +130,17 @@ class SystemInfoDialog(QDialog):
         cpu_text.setReadOnly(True)
         layout2.addWidget(cpu_text)
 
-        # 获取硬盘信息
-        disk_partitions = psutil.disk_partitions()
-        print(disk_partitions)
-        # disk_count = subprocess.check_output(
-        #     ["powershell", "-Command", "Get-WmiObject -Class Win32_DiskDrive | Measure-Object"]
-        # ).decode().strip().splitlines()[0]
-        # disk_capacity = subprocess.check_output(
-        #     ["powershell", "-Command", "Get-WmiObject -Class Win32_DiskDrive | Select-Object -ExpandProperty Size"],
-        #     shell=True
-        # ).decode().strip().split("\n")
-        # disk_capacity = [str(int(capacity) / (1024 ** 3)).split('.')[0] + " GB" for capacity in disk_capacity]
-        # disk_label = QLabel(f"硬盘数量: {disk_count.split(':')[1]}，硬盘容量大小: {disk_capacity[0]}", self)
-        # layout.addWidget(disk_label)
-
         # 获取硬盘序列号
-        diskinfo = systeminfo.Win32_DiskDrive()[0]
-        disk_serial = diskinfo.SerialNumber.replace(' ', '')
-        disk_number_label = QLabel(self)
-        disk_number_label.setText("硬盘序列号：")
-        layout1.addWidget(disk_number_label)
-        disk_text = QTextEdit(self)
-        disk_text.setText(disk_serial)
-        disk_text.setReadOnly(True)
-        layout2.addWidget(disk_text)
+        diskinfo = systeminfo.Win32_DiskDrive()
+        for disk in diskinfo:
+            disk_serial = disk.SerialNumber.replace(' ', '')
+            disk_number_label = QLabel(self)
+            disk_number_label.setText("硬盘序列号：")
+            layout1.addWidget(disk_number_label)
+            disk_text = QTextEdit(self)
+            disk_text.setText(disk_serial)
+            disk_text.setReadOnly(True)
+            layout2.addWidget(disk_text)
 
         # 获取内存信息
         memory_info = psutil.virtual_memory()
@@ -185,20 +173,28 @@ class SystemInfoDialog(QDialog):
         layout2.addWidget(comp_name_text)
 
         # 获取 MAC 地址并格式化
-        interfaces = netifaces.interfaces()
-        for interface in interfaces:
-            mac_address = netifaces.ifaddresses(interface)[netifaces.AF_LINK][0]['addr']
-            if mac_address:
-                mac_label = QLabel(self)
-                mac_label.setText("MAC地址：")
-                layout1.addWidget(mac_label)
-                mac_text = QTextEdit(self)
-                mac_text.setText(mac_address)
-                mac_text.setReadOnly(True)
-                layout2.addWidget(mac_text)
-        # mac = uuid.UUID(int = uuid.getnode()).hex[-12:].upper()
-        # mac_addr ="-".join([mac[e:e+2] for e in range(0,len(mac),2)])
-
+        mac_addr = psutil.net_if_addrs()
+        for mac in mac_addr:
+            if mac.lower().__contains__('loopback'):
+                continue
+            mac_label = QLabel(self)
+            mac_label.setText("MAC地址：")
+            layout1.addWidget(mac_label)
+            mac_text = QTextEdit(self)
+            mac_text.setText(f'网卡名称：{str(mac)}------网卡地址：{mac_addr[mac][0].address}')
+            mac_text.setReadOnly(True)
+            layout2.addWidget(mac_text)
+        # interfaces = netifaces.interfaces()
+        # for interface in interfaces:
+        #     mac_address = netifaces.ifaddresses(interface)[netifaces.AF_LINK][0]['addr']
+        #     if mac_address:
+        #         mac_label = QLabel(self)
+        #         mac_label.setText("MAC地址：")
+        #         layout1.addWidget(mac_label)
+        #         mac_text = QTextEdit(self)
+        #         mac_text.setText(mac_address.replace(':', '-'))
+        #         mac_text.setReadOnly(True)
+        #         layout2.addWidget(mac_text)
 
 
 if __name__ == '__main__':
